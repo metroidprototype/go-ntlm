@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"log"
+	"os"
 	"strings"
 	"time"
 )
@@ -288,7 +289,73 @@ type V2ClientSession struct {
 }
 
 func (n *V2ClientSession) GenerateNegotiateMessage() (nm *NegotiateMessage, err error) {
-	return nil, nil
+
+	domain := strings.ToUpper(n.userDomain)
+	nm = new(NegotiateMessage)
+	nm.Signature = []byte("NTLMSSP\x00")
+	nm.MessageType = uint32(1)
+	nm.PayloadOffset = int(40)
+
+	flags := uint32(0)
+	flags = NTLMSSP_NEGOTIATE_UNICODE.Set(flags)
+	flags = NTLM_NEGOTIATE_OEM.Set(flags)
+	flags = NTLMSSP_REQUEST_TARGET.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_NTLM.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_OEM_DOMAIN_SUPPLIED.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_ALWAYS_SIGN.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_VERSION.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_128.Set(flags)
+	flags = NTLMSSP_NEGOTIATE_56.Set(flags)
+
+	nm.NegotiateFlags = flags
+	workstation, err := os.Hostname()
+	if err != nil {
+		return
+	}
+
+	nm.DomainNameFields, _ = CreateStringPayload(domain)
+	nm.DomainNameFields.Offset = uint32(nm.PayloadOffset)
+
+	workstation = strings.ToUpper(workstation)
+	nm.WorkstationFields, _ = CreateStringPayload(workstation)
+	// Workstation will be after the domain in the payload, so we need to
+	// increase the recorded offset by the length of the domain
+	nm.WorkstationFields.Offset = uint32(nm.PayloadOffset + len(domain))
+
+	nm.Version = &VersionStruct{ProductMajorVersion: uint8(5), ProductMinorVersion: uint8(1), ProductBuild: uint16(2600), NTLMRevisionCurrent: 0x0F}
+
+	nm.Payload = append(nm.Payload, []byte(domain)...)
+	nm.Payload = append(nm.Payload, []byte(workstation)...)
+
+	// Constuct nm.Bytes based on https://msdn.microsoft.com/en-us/library/cc236641.aspx
+	buffer := new(bytes.Buffer)
+	// Signature (8 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.Signature)
+
+	//MessageType (4 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.MessageType)
+
+	//NegotiateFlags (4 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.NegotiateFlags)
+
+	// DomainNameFields (8 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.DomainNameFields.Bytes())
+
+	// WorkstationFields (8 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.WorkstationFields.Bytes())
+
+	// Version (8 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.Version.Bytes())
+
+	// Add Payload
+	binary.Write(buffer, binary.LittleEndian, nm.Payload)
+
+	// Set nm.Bytes
+	nm.Bytes = buffer.Bytes()
+
+	return nm, nil
 }
 
 func (n *V2ClientSession) ProcessChallengeMessage(cm *ChallengeMessage) (err error) {
