@@ -290,7 +290,6 @@ type V2ClientSession struct {
 
 func (n *V2ClientSession) GenerateNegotiateMessage() (nm *NegotiateMessage, err error) {
 
-	domain := strings.ToUpper(n.userDomain)
 	nm = new(NegotiateMessage)
 	nm.Signature = []byte("NTLMSSP\x00")
 	nm.MessageType = uint32(1)
@@ -308,26 +307,24 @@ func (n *V2ClientSession) GenerateNegotiateMessage() (nm *NegotiateMessage, err 
 	flags = NTLMSSP_NEGOTIATE_VERSION.Set(flags)
 	flags = NTLMSSP_NEGOTIATE_128.Set(flags)
 	flags = NTLMSSP_NEGOTIATE_56.Set(flags)
-
 	nm.NegotiateFlags = flags
+
 	workstation, err := os.Hostname()
 	if err != nil {
 		return
 	}
-
-	nm.DomainNameFields, _ = CreateStringPayload(domain)
-	nm.DomainNameFields.Offset = uint32(nm.PayloadOffset)
-
 	workstation = strings.ToUpper(workstation)
 	nm.WorkstationFields, _ = CreateStringPayload(workstation)
-	// Workstation will be after the domain in the payload, so we need to
-	// increase the recorded offset by the length of the domain
-	nm.WorkstationFields.Offset = uint32(nm.PayloadOffset + len(domain))
+	nm.WorkstationFields.Offset = uint32(nm.PayloadOffset)
+
+	domain := strings.ToUpper(n.userDomain)
+	nm.DomainNameFields, _ = CreateStringPayload(domain)
+	nm.DomainNameFields.Offset = uint32(nm.PayloadOffset + len(workstation))
 
 	nm.Version = &VersionStruct{ProductMajorVersion: uint8(5), ProductMinorVersion: uint8(1), ProductBuild: uint16(2600), NTLMRevisionCurrent: 0x0F}
 
-	nm.Payload = append(nm.Payload, []byte(domain)...)
 	nm.Payload = append(nm.Payload, []byte(workstation)...)
+	nm.Payload = append(nm.Payload, []byte(domain)...)
 
 	// Constuct nm.Bytes based on https://msdn.microsoft.com/en-us/library/cc236641.aspx
 	buffer := new(bytes.Buffer)
@@ -349,7 +346,7 @@ func (n *V2ClientSession) GenerateNegotiateMessage() (nm *NegotiateMessage, err 
 	// Version (8 bytes)
 	binary.Write(buffer, binary.LittleEndian, nm.Version.Bytes())
 
-	// Add Payload
+	// Add Payload (variable)
 	binary.Write(buffer, binary.LittleEndian, nm.Payload)
 
 	// Set nm.Bytes
