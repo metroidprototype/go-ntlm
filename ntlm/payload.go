@@ -63,8 +63,8 @@ func CreateStringPayload(value string) (*PayloadStruct, error) {
 	bytes := utf16FromString(value)
 	p := new(PayloadStruct)
 	p.Type = UnicodeStringPayload
-	p.Len = uint16(len(bytes))
-	p.MaxLen = uint16(len(bytes))
+	p.Len = uint16(len(value))
+	p.MaxLen = uint16(len(value))
 	p.Payload = bytes // TODO: Copy these bytes instead of keeping a reference
 	return p, nil
 }
