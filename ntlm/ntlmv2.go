@@ -417,14 +417,39 @@ func (n *V2ClientSession) ProcessChallengeMessage(cm *ChallengeMessage) (err err
 
 func (n *V2ClientSession) GenerateAuthenticateMessage() (am *AuthenticateMessage, err error) {
 	am = new(AuthenticateMessage)
+	payloadOffset := uint32(8 + 4 + 6*8 + 4 + 8 + 16)
+
 	am.Signature = []byte("NTLMSSP\x00")
 	am.MessageType = uint32(3)
+
 	am.LmChallengeResponse, _ = CreateBytePayload(n.lmChallengeResponse)
+	am.LmChallengeResponse.Offset = payloadOffset
+	payloadOffset += uint32(am.LmChallengeResponse.Len)
+
 	am.NtChallengeResponseFields, _ = CreateBytePayload(n.ntChallengeResponse)
+	am.NtChallengeResponseFields.Offset = payloadOffset
+	payloadOffset += uint32(am.NtChallengeResponseFields.Len)
+
 	am.DomainName, _ = CreateStringPayload(n.userDomain)
+	am.DomainName.Offset = payloadOffset
+	payloadOffset += uint32(am.DomainName.Len)
+
 	am.UserName, _ = CreateStringPayload(n.user)
-	am.Workstation, _ = CreateStringPayload("SQUAREMILL")
+	am.UserName.Offset = payloadOffset
+	payloadOffset += uint32(am.UserName.Len)
+
+	workstation, err := os.Hostname()
+	if err != nil {
+		return
+	}
+	workstation = strings.ToUpper(workstation)
+	am.Workstation, _ = CreateStringPayload(workstation)
+	am.Workstation.Offset = payloadOffset
+	payloadOffset += uint32(am.Workstation.Len)
+
 	am.EncryptedRandomSessionKey, _ = CreateBytePayload(n.encryptedRandomSessionKey)
+	am.EncryptedRandomSessionKey.Offset = payloadOffset
+
 	am.NegotiateFlags = n.NegotiateFlags
 	am.Mic = make([]byte, 16)
 	am.Version = &VersionStruct{ProductMajorVersion: uint8(5), ProductMinorVersion: uint8(1), ProductBuild: uint16(2600), NTLMRevisionCurrent: 0x0F}
