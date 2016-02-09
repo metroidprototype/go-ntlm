@@ -334,23 +334,7 @@ func (n *V2ClientSession) ProcessChallengeMessage(cm *ChallengeMessage) (err err
 	n.serverChallenge = cm.ServerChallenge
 	n.clientChallenge = randomBytes(8)
 
-	// Set up the default flags for processing the response. These are the flags that we will return
-	// in the authenticate message
-	flags := uint32(0)
-	flags = NTLMSSP_NEGOTIATE_KEY_EXCH.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_VERSION.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_EXTENDED_SESSIONSECURITY.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_TARGET_INFO.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_IDENTIFY.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_ALWAYS_SIGN.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_NTLM.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_DATAGRAM.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_SIGN.Set(flags)
-	flags = NTLMSSP_REQUEST_TARGET.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_UNICODE.Set(flags)
-	flags = NTLMSSP_NEGOTIATE_128.Set(flags)
-
-	n.NegotiateFlags = flags
+	n.NegotiateFlags = cm.NegotiateFlags
 
 	err = n.fetchResponseKeys()
 	if err != nil {
@@ -404,7 +388,7 @@ func (n *V2ClientSession) GenerateAuthenticateMessage() (am *AuthenticateMessage
 	am.NtChallengeResponseFields.Offset = payloadOffset
 	payloadOffset += uint32(am.NtChallengeResponseFields.Len)
 
-	am.DomainName, _ = CreateStringPayload(n.userDomain)
+	am.DomainName, _ = CreateStringPayload(strings.ToUpper(n.userDomain))
 	am.DomainName.Offset = payloadOffset
 	payloadOffset += uint32(am.DomainName.Len)
 
@@ -416,8 +400,7 @@ func (n *V2ClientSession) GenerateAuthenticateMessage() (am *AuthenticateMessage
 	if err != nil {
 		return
 	}
-	workstation = strings.ToUpper(workstation)
-	am.Workstation, _ = CreateStringPayload(workstation)
+	am.Workstation, _ = CreateStringPayload(strings.ToUpper(workstation))
 	am.Workstation.Offset = payloadOffset
 	payloadOffset += uint32(am.Workstation.Len)
 
@@ -427,6 +410,12 @@ func (n *V2ClientSession) GenerateAuthenticateMessage() (am *AuthenticateMessage
 	am.NegotiateFlags = n.NegotiateFlags
 	am.Mic = make([]byte, 16)
 	am.Version = &VersionStruct{ProductMajorVersion: uint8(5), ProductMinorVersion: uint8(1), ProductBuild: uint16(2600), NTLMRevisionCurrent: 0x0F}
+	am.Payload = append(am.Payload, am.LmChallengeResponse.Payload...)
+	am.Payload = append(am.Payload, am.NtChallengeResponseFields.Payload...)
+	am.Payload = append(am.Payload, am.DomainName.Payload...)
+	am.Payload = append(am.Payload, am.UserName.Payload...)
+	am.Payload = append(am.Payload, am.Workstation.Payload...)
+	am.Payload = append(am.Payload, am.EncryptedRandomSessionKey.Payload...)
 	return am, nil
 }
 
@@ -438,7 +427,9 @@ func (n *V2ClientSession) computeEncryptedSessionKey() (err error) {
 			return err
 		}
 	} else {
-		n.encryptedRandomSessionKey = n.keyExchangeKey
+		// if NTLMSSP_NEGOTIATE_KEY_EXCH flag is not set in NegotiateFlags,
+		// an EncryptedRandomSessionKey is not supplied, and should be empty
+		n.encryptedRandomSessionKey = make([]byte, 0)
 	}
 	return nil
 }
