@@ -2,6 +2,11 @@
 
 package ntlm
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 type NegotiateMessage struct {
 	// sig - 8 bytes
 	Signature []byte
@@ -24,28 +29,25 @@ type NegotiateMessage struct {
 }
 
 func (n *NegotiateMessage) Bytes() []byte {
+	payloadLen := int(n.DomainNameFields.Len + n.WorkstationFields.Len)
+
+	messageBytes := make([]byte, 0, n.PayloadOffset+payloadLen)
 	// Constuct Bytes based on https://msdn.microsoft.com/en-us/library/cc236641.aspx
-	buffer := new(bytes.Buffer)
-	// Signature (8 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.Signature)
+	buffer := bytes.NewBuffer(messageBytes)
 
-	// MessageType (4 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.MessageType)
+	buffer.Write(n.Signature)
 
-	// NegotiateFlags (4 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.NegotiateFlags)
+	binary.Write(buffer, binary.LittleEndian, n.MessageType)
 
-	// DomainNameFields (8 bytes)
-	binary.Write(nm.DomainNameFields.Bytes())
+	binary.Write(buffer, binary.LittleEndian, n.NegotiateFlags)
 
-	// WorkstationFields (8 bytes)
-	binary.Write(nm.WorkstationFields.Bytes())
+	buffer.Write(n.DomainNameFields.Bytes())
 
-	// Version (8 bytes)
-	binary.Write(m.Version.Bytes())
+	buffer.Write(n.WorkstationFields.Bytes())
 
-	// Add Payload (variable)
-	binary.Write(buffer, binary.LittleEndian, nm.Payload)
+	buffer.Write(n.Version.Bytes())
+
+	buffer.Write(n.Payload)
 
 	return buffer.Bytes()
 }
