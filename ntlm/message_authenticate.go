@@ -183,7 +183,6 @@ func (a *AuthenticateMessage) getLowestPayloadOffset() int {
 func (a *AuthenticateMessage) Bytes() []byte {
 	payloadLen := int(a.LmChallengeResponse.Len + a.NtChallengeResponseFields.Len + a.DomainName.Len + a.UserName.Len + a.Workstation.Len + a.EncryptedRandomSessionKey.Len)
 	messageLen := 8 + 4 + 6*8 + 4 + 8 + 16
-	payloadOffset := uint32(messageLen)
 
 	messageBytes := make([]byte, 0, messageLen+payloadLen)
 	buffer := bytes.NewBuffer(messageBytes)
@@ -192,28 +191,16 @@ func (a *AuthenticateMessage) Bytes() []byte {
 
 	binary.Write(buffer, binary.LittleEndian, a.MessageType)
 
-	a.LmChallengeResponse.Offset = payloadOffset
-	payloadOffset += uint32(a.LmChallengeResponse.Len)
 	buffer.Write(a.LmChallengeResponse.Bytes())
 
-	a.NtChallengeResponseFields.Offset = payloadOffset
-	payloadOffset += uint32(a.NtChallengeResponseFields.Len)
 	buffer.Write(a.NtChallengeResponseFields.Bytes())
 
-	a.DomainName.Offset = payloadOffset
-	payloadOffset += uint32(a.DomainName.Len)
 	buffer.Write(a.DomainName.Bytes())
 
-	a.UserName.Offset = payloadOffset
-	payloadOffset += uint32(a.UserName.Len)
 	buffer.Write(a.UserName.Bytes())
 
-	a.Workstation.Offset = payloadOffset
-	payloadOffset += uint32(a.Workstation.Len)
 	buffer.Write(a.Workstation.Bytes())
 
-	a.EncryptedRandomSessionKey.Offset = payloadOffset
-	payloadOffset += uint32(a.EncryptedRandomSessionKey.Len)
 	buffer.Write(a.EncryptedRandomSessionKey.Bytes())
 
 	buffer.Write(uint32ToBytes(a.NegotiateFlags))
