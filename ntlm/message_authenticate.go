@@ -217,13 +217,8 @@ func (a *AuthenticateMessage) Bytes() []byte {
 		buffer.Write(make([]byte, 16))
 	}
 
-	// Write out the payloads
-	buffer.Write(a.LmChallengeResponse.Payload)
-	buffer.Write(a.NtChallengeResponseFields.Payload)
-	buffer.Write(a.DomainName.Payload)
-	buffer.Write(a.UserName.Payload)
-	buffer.Write(a.Workstation.Payload)
-	buffer.Write(a.EncryptedRandomSessionKey.Payload)
+	// Write out the payload
+	buffer.Write(a.Payload)
 
 	return buffer.Bytes()
 }
@@ -235,21 +230,25 @@ func (a *AuthenticateMessage) String() string {
 	buffer.WriteString(fmt.Sprintf("Payload Offset: %d Length: %d\n", a.getLowestPayloadOffset(), len(a.Payload)))
 
 	if a.LmV2Response != nil {
+		buffer.WriteString("LmV2\n")
 		buffer.WriteString(a.LmV2Response.String())
 		buffer.WriteString("\n")
 	}
 
 	if a.LmV1Response != nil {
+		buffer.WriteString("LmV1\n")
 		buffer.WriteString(a.LmV1Response.String())
 		buffer.WriteString("\n")
 	}
 
 	if a.NtlmV2Response != nil {
+		buffer.WriteString("NtlmV2\n")
 		buffer.WriteString(a.NtlmV2Response.String())
 		buffer.WriteString("\n")
 	}
 
 	if a.NtlmV1Response != nil {
+		buffer.WriteString("NtlmV1\n")
 		buffer.WriteString(fmt.Sprintf("NtlmResponse Length: %d\n", a.NtChallengeResponseFields.Len))
 		buffer.WriteString(a.NtlmV1Response.String())
 		buffer.WriteString("\n")
