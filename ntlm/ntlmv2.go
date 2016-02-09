@@ -326,32 +326,6 @@ func (n *V2ClientSession) GenerateNegotiateMessage() (nm *NegotiateMessage, err 
 	nm.Payload = append(nm.Payload, []byte(workstation)...)
 	nm.Payload = append(nm.Payload, []byte(domain)...)
 
-	// Constuct nm.Bytes based on https://msdn.microsoft.com/en-us/library/cc236641.aspx
-	buffer := new(bytes.Buffer)
-	// Signature (8 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.Signature)
-
-	//MessageType (4 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.MessageType)
-
-	//NegotiateFlags (4 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.NegotiateFlags)
-
-	// DomainNameFields (8 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.DomainNameFields.Bytes())
-
-	// WorkstationFields (8 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.WorkstationFields.Bytes())
-
-	// Version (8 bytes)
-	binary.Write(buffer, binary.LittleEndian, nm.Version.Bytes())
-
-	// Add Payload (variable)
-	binary.Write(buffer, binary.LittleEndian, nm.Payload)
-
-	// Set nm.Bytes
-	nm.Bytes = buffer.Bytes()
-
 	return nm, nil
 }
 

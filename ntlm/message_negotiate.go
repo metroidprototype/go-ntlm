@@ -3,9 +3,6 @@
 package ntlm
 
 type NegotiateMessage struct {
-	// All bytes of the message
-	Bytes []byte
-
 	// sig - 8 bytes
 	Signature []byte
 	// message type - 4 bytes
@@ -24,4 +21,31 @@ type NegotiateMessage struct {
 	// payload - variable
 	Payload       []byte
 	PayloadOffset int
+}
+
+func (n *NegotiateMessage) Bytes() []byte {
+	// Constuct Bytes based on https://msdn.microsoft.com/en-us/library/cc236641.aspx
+	buffer := new(bytes.Buffer)
+	// Signature (8 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.Signature)
+
+	// MessageType (4 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.MessageType)
+
+	// NegotiateFlags (4 bytes)
+	binary.Write(buffer, binary.LittleEndian, nm.NegotiateFlags)
+
+	// DomainNameFields (8 bytes)
+	binary.Write(nm.DomainNameFields.Bytes())
+
+	// WorkstationFields (8 bytes)
+	binary.Write(nm.WorkstationFields.Bytes())
+
+	// Version (8 bytes)
+	binary.Write(m.Version.Bytes())
+
+	// Add Payload (variable)
+	binary.Write(buffer, binary.LittleEndian, nm.Payload)
+
+	return buffer.Bytes()
 }
